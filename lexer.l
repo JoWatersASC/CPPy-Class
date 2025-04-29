@@ -8,6 +8,32 @@ extern int lineNum;
 
 %option noyywrap
 
+%%
+
+"//".*                              ;   // skip single-line comments
+"/*"(.|\n)*?"*/"                    ;   // skip block comments
+[ \t\r\n]+                          ;   // ignore whitespace
+
+"class"                             {
+                                        yylval.s = strdup(yytext);
+                                        return class;
+                                    }
+"public"|"private"|"protected"      { return ACC; }
+";"                                 { return SC; }
+"{"                                 { return '{'; }
+"}"                                 { return '}'; }
+"("                                 { return '('; }
+")"                                 { return ')'; }
+","                                 { return ','; }
+
+[A-Za-z_][A-Za-z0-9_]*              {
+                                        yylval.s = strdup(yytext);
+                                        return NAME;
+                                    }
+
+.                                   ;
+
+%%
 
 /*
 
