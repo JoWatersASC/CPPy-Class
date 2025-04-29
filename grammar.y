@@ -9,10 +9,21 @@
 
 using std::unordered_set;
 using std::ofstream;
+using std::cout;
+using std::endl;
 
 std::string class_name;
-set<std::string> mem_vars;
+unordered_set<std::string> mem_vars;
+
+// ofstream outFilePy("CPPy-Class.py");
+std::ostream& out = cout;
+
 int indent = 0;
+void print_indent() { for(int i=0; i<indent; ++i) out << "    "; }
+void newline()      { out << "\n"; }
+void inc_indent()   { ++indent; }
+void dec_indent()   { --indent; }
+
 bool has_constructor = false;
 
 int lineNum = 1;
@@ -47,39 +58,107 @@ extern int yydebug;
 %start S
 
 %%
-S    : class CLS              { $$ = $2; }
-CLS  : NAME '{' BOD '}' SC    { $$ = $1; class_name = $1; scope_level++; }
-BOD  : ACC ':'                {}
-     | ACC ':' BOD            {}
-     | FUNC                   {}
-     | FUNC BOD               {}
-     | VAR SC                 {}
-     | VAR SC BOD             {}
-     | CSTRCT                 {}
-     | CSTRCT BOD             {}
+S    : class CLS
+     ;
+
+CLS  : NAME '{' BOD '}' SC    
+     {
+          if (!has_constructor) {
+               inc_indent();
+               print_indent(); 
+               
+               out << "def __init__(self):\n";
+
+               inc_indent();
+
+               for (auto &v : mem_vars) {
+                    print_indent(); 
+                    out << "self." << v << " = None\n";
+               }
+
+               dec_indent();
+               dec_indent();
+          }
+          
+          has_constructor = false;
+          mem_vars.clear();
+     }
+     ;
+
+BOD  : e
+     | ACC ':' BOD
+     | VAR SC BOD
+     | FUNC BOD
+     | CSTRCT BOD
+     ;
+
 SCP  :                        {}
      | '{' VAR SC SCP '}'     { scope_level++; }
      | '{' CALL SC SCP '}'    {}
-VAR  : DEC                    {}
-     | DEC '=' EXP            {}
-FUNC : DEC '('')' SCP         {}
-     | DEC '(' VARL ')' SCP   {}
-CALL : NAME '(' ')' SC        {}
-     | NAME '(' NAMEL ')' SC  {}
-DEC  : NAME NAME              {
-                                  if(mem_vars.find($2) != mem_vars.end()) { 
-								      mem_vars.insert($2);
-                                      $$ = $2; 
-                                  } else {
-                                      std::cout << "Duplicate variable declarations of: " << $2 << std::endl;
-                                      $$ = 0;
-                                  }
-                              }
+VAR  : DEC {}
+     | DEC '=' // skip init
+     ;
+     /* : TYPE NAME SC
+      {
+        mem_vars.push_back($2);
+      }
+    ;*/
+FUNC : DEC '(' ')' SCP
+     {
+          inc_indent();
+          print_indent(); 
 
-VARL : VAR
-     | VARL ',' VAR
-NAMEL: NAME
-     | NAMEL ',' NAME
+          out << "def " << $1 << "(self):\n"; newline();
+
+          inc_indent();
+          print_indent(); 
+
+          out << "pass\n";
+
+          dec_indent();
+          dec_indent();
+     }
+     | DEC '(' VARL ')' SCP
+     {
+          inc_indent();
+          print_indent();
+
+          out<< "def " << $1 << "(self, " << $3 << "):\n";
+
+          inc_indent();
+          print_indent(); 
+
+          out << "pass\n";
+
+          dec_indent();
+          dec_indent();
+     }
+     ;
+
+CALL : NAME '(' ')' SC
+     | NAME '(' NAMEL ')' SC {}
+     ;
+
+DEC  : NAME NAME
+     {
+          string var = $2;
+          
+          if (mem_vars.insert(var).second) { // insert returns boolean: true if successful/didn't exist already
+               $$ = $2;
+          } else {
+               cerr << "Warning: duplicate member " << var << "\n";
+               $$ = 0;
+          }
+     }
+     ;
+
+VARL : VAR               { $$ = string($1); }
+     | VARL ',' VAR      { $$ = $1 + ", " + string($3); }
+     ;
+
+NAMEL: NAME              { $$ = string($1); }
+     | NAMEL ',' NAME    { $$ = $1 + ", " + string($3); }
+     ;
 
 CSTRCT : NAME '(' ')' SCP     {
                                   if(class_name != $1) {
@@ -91,6 +170,8 @@ CSTRCT : NAME '(' ')' SCP     {
                                   }
                               }
        | NAME '('VARL')' SCP
+
+e : ;
 %%
 
 /*
