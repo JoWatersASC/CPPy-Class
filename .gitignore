@@ -8,7 +8,8 @@ output/
 *.tab*
 *.yy*
 
-# Clean script
+# Clean and rebuild scripts
 clean.sh
+rebuild.sh
 
 !.gitignore
