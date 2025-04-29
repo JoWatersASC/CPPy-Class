@@ -15,17 +15,20 @@ using std::endl;
 
 string class_name;
 string paren_name = ""; // optional parent class name
-std::unordered_set<std::string> mem_vars;
-std::ofstream out("./CPPy-Class.py");
-
 string ctor_params = "";
 
 struct method {
      string name;
      string params;
+
+     bool operator==(const method& o) const { return name == o.name; }
 };
 
 std::vector<method> methods;
+std::vector<std::string> mem_vars;
+std::unordered_set<std::string> members;
+
+std::ofstream out("./CPPy-Class.py");
 // std::ostream *output_stream = &cout;
 // std::ostream& out = *output_stream;
 
@@ -132,21 +135,23 @@ BOD  : e
      | CTOR BOD
      ;
 
-SCP  :                        {}
+SCP  :                        {} // store SCP output in a string and appnend to the function
      | '{' VAR SC SCP '}'     { indent++; }
      | '{' CALL SC SCP '}'    {}
      ;
 
-VAR  : DEC                    { $$ = $1; }
-     | DEC '='                { $$ = $1 + '='; }// skip init
+VAR  : DEC                    { $$ = $1; mem_vars.push_back($1); }
+     | DEC '='                { $$ = $1 + '='; mem_vars.push_back($1); }// skip init
      ;
      /* : TYPE NAME SC
       {
         mem_vars.push_back($2);
       }
     ;*/
-FUNC : DEC '(' ')' SCP      { methods.push_back({ string($1), "" }); }
-     | DEC '(' VARL ')' SCP { methods.push_back({ string($1), string($3) }); }
+FUNC : DEC '(' ')' SCP      { methods.push_back({ string($1), "" }); } // maybe store the SCP result in a map of sorts for each func, 
+     | DEC '(' VARL ')' SCP { methods.push_back({ string($1), string($3) }); } //or keep another field 'string body' in 'method' struct
+     | DEC '(' ')' SC       { methods.push_back({ string($1), "" }); } // Declarations w/ no body
+     | DEC '(' VARL ')' SC { methods.push_back({ string($1), string($3) }); }
      ;
 
 CALL : NAME '(' ')' SC
@@ -157,8 +162,9 @@ DEC  : NAME NAME
      {
           string var = $2;
           
-          if (mem_vars.insert(var).second) { // insert returns boolean: true if successful/didn't exist already
+          if (!members.count(var)) { // insert returns boolean: true if successful/didn't exist already
                $$ = $2;
+               members.insert(var);
           } else {
                cerr << "Warning: duplicate member " << var << "\n";
                $$ = 0;
