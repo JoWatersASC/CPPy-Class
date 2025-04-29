@@ -53,7 +53,7 @@ extern int yydebug;
 %type <d> exp factor term
 */
 %token <s> ACC NAME SC class
-%type <s> CLS DEC
+%type <s> CLS DEC VAR VARL NAMEL
 
 %start S
 
@@ -89,14 +89,14 @@ BOD  : e
      | ACC ':' BOD
      | VAR SC BOD
      | FUNC BOD
-     | CSTRCT BOD
+     | CTOR BOD
      ;
 
 SCP  :                        {}
      | '{' VAR SC SCP '}'     { scope_level++; }
      | '{' CALL SC SCP '}'    {}
-VAR  : DEC {}
-     | DEC '=' // skip init
+VAR  : DEC                    { $$ = $1 }
+     | DEC '='                { $$ = $1 + '='; }// skip init
      ;
      /* : TYPE NAME SC
       {
@@ -160,16 +160,55 @@ NAMEL: NAME              { $$ = string($1); }
      | NAMEL ',' NAME    { $$ = $1 + ", " + string($3); }
      ;
 
-CSTRCT : NAME '(' ')' SCP     {
-                                  if(class_name != $1) {
-                                      std::cout << "Function missing type specifier: " << $1 << std::endl;
-                                  } else if(has_constructor) {
-                                      std::cout << "Class may only have single constructor" << std::endl;
-                                  } else {
-                                      has_constructor = true;
-                                  }
-                              }
-       | NAME '('VARL')' SCP
+CTOR : NAME '(' ')' SCP
+     {
+          if ($1 != class_name) {
+               cerr << "Warning: constructor name " << $1 << " != class " << class_name << endl;
+          } else if (has_constructor) {
+               cerr << "Error: only one constructor allowed\n";
+          } else {
+               has_constructor = true;
+               inc_indent();
+               print_indent();
+               
+               out << "def __init__(self):\n";
+               
+               inc_indent();
+
+               for (auto &v : mem_vars) {
+                    print_indent();
+                    cout << "self." << v << " = None\n";
+               }
+               
+               dec_indent();
+               dec_indent();
+          }
+     }
+     | NAME '(' VARL ')' SCP
+     {
+          if ($1 != class_name) {
+               cerr << "Warning: constructor name " << $1 << " != class " << class_name << endl;
+          } else if (has_constructor) {
+               cerr << "Error: only one constructor allowed\n";
+          } else {
+               has_constructor = true;
+               inc_indent();
+               print_indent(); 
+               
+               out << "def __init__(self, " << $3 << "):\n";
+               
+               inc_indent();
+
+               for (auto &v : mem_vars) {
+                    print_indent(); 
+                    out << "self." << v << " = None\n";
+               }
+
+               dec_indent();
+               dec_indent();
+          }
+     }
+     ;
 
 e : ;
 %%
