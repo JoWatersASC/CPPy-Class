@@ -5,4 +5,7 @@ output/
 *.tab*
 *.yy*
 
+# Clean script
+clean.sh
+
 !.gitignore
