@@ -16,7 +16,7 @@ extern int lineNum;
 
 "class"                             {
                                         yylval.s = strdup(yytext);
-                                        return class;
+                                        return CLASS;
                                     }
 "public"|"private"|"protected"      { return ACC; }
 ";"                                 { return SC; }

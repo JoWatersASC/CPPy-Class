@@ -7,13 +7,14 @@
 #include <vector>
 #include <unordered_set>
 
-using std::unordered_set;
-using std::ofstream;
+using std::string;
 using std::cout;
+using std::cerr;
 using std::endl;
 
-std::string class_name;
-unordered_set<std::string> mem_vars;
+string class_name;
+std::unordered_set<std::string> mem_vars;
+std::ofstream out = std::ofstream("./output/CPPy-Class.py");
 
 // std::ostream *output_stream = &cout;
 // std::ostream& out = *output_stream;
@@ -25,7 +26,6 @@ void inc_indent()   { ++indent; }
 void dec_indent()   { --indent; }
 
 bool has_constructor = false;
-extern std::ostream out;
 // bool from_file       = false; // defines if user inputs info or comes
 
 int lineNum = 1;
@@ -48,13 +48,13 @@ extern int yydebug;
 	char *s;
 }
 
-%token <s> ACC NAME SC class
+%token <s> ACC NAME SC CLASS
 %type <s> CLS DEC VAR VARL NAMEL
 
 %start S
 
 %%
-S    : class CLS
+S    : CLASS CLS
      ;
 
 CLS  : NAME '{' BOD '}' SC    
@@ -89,9 +89,11 @@ BOD  : e
      ;
 
 SCP  :                        {}
-     | '{' VAR SC SCP '}'     { scope_level++; }
+     | '{' VAR SC SCP '}'     { indent++; }
      | '{' CALL SC SCP '}'    {}
-VAR  : DEC                    { $$ = $1 }
+     ;
+
+VAR  : DEC                    { $$ = $1; }
      | DEC '='                { $$ = $1 + '='; }// skip init
      ;
      /* : TYPE NAME SC
@@ -148,12 +150,16 @@ DEC  : NAME NAME
      }
      ;
 
-VARL : VAR               { $$ = string($1); }
-     | VARL ',' VAR      { $$ = $1 + ", " + string($3); }
+VARL : VAR               { $$ = $1; }
+     | VARL ',' VAR      { $$ = const_cast<char *>(
+                              (string($1) + ", " + string($3)).c_str()
+                         );}
      ;
 
-NAMEL: NAME              { $$ = string($1); }
-     | NAMEL ',' NAME    { $$ = $1 + ", " + string($3); }
+NAMEL: NAME              { $$ = $1; }
+     | NAMEL ',' NAME    { $$ = const_cast<char *>(
+                              (string($1) + ", " + string($3)).c_str()
+                         );}
      ;
 
 CTOR : NAME '(' ')' SCP
