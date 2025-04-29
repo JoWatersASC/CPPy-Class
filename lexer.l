@@ -1,11 +1,14 @@
 %{
 #include <iostream>
 #include "grammar.tab.h"
+#include <cstring>
 
 extern int lineNum;
 %}
 
 %option noyywrap
+
+
 /*
 
 %%
