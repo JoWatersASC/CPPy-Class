@@ -18,13 +18,14 @@ extern int lineNum;
                                         yylval.s = strdup(yytext);
                                         return CLASS;
                                     }
-"public"|"private"|"protected"      { return ACC; }
-";"                                 { return SC; }
+("public"|"private"|"protected")    { return ACC; }
+";"+                                { return SC; }
 "{"                                 { return '{'; }
 "}"                                 { return '}'; }
 "("                                 { return '('; }
 ")"                                 { return ')'; }
 ","                                 { return ','; }
+":"									{ return ':'; }
 
 [A-Za-z_][A-Za-z0-9_]*              {
                                         yylval.s = strdup(yytext);
