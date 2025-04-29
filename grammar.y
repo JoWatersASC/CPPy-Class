@@ -12,10 +12,20 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-string class_name;
-std::unordered_set<std::string> mem_vars;
-std::ofstream out = std::ofstream("./output/CPPy-Class.py");
 
+string class_name;
+string paren_name = ""; // optional parent class name
+std::unordered_set<std::string> mem_vars;
+std::ofstream out("./CPPy-Class.py");
+
+string ctor_params = "";
+
+struct method {
+     string name;
+     string params;
+};
+
+std::vector<method> methods;
 // std::ostream *output_stream = &cout;
 // std::ostream& out = *output_stream;
 
@@ -49,7 +59,7 @@ extern int yydebug;
 }
 
 %token <s> ACC NAME SC CLASS
-%type <s> CLS DEC VAR VARL NAMEL
+%type <s> CLS CTOR DEC VAR VARL NAMEL 
 
 %start S
 
@@ -57,29 +67,63 @@ extern int yydebug;
 S    : CLASS CLS
      ;
 
-CLS  : NAME '{' BOD '}' SC    
+CLS  : NAME IHRT '{' BOD '}' SC
      {
-          if (!has_constructor) {
-               inc_indent();
-               print_indent(); 
-               
+          print_indent();
+
+          out << "class " << $1;
+          if (!paren_name.empty()) 
+               out << "(" << paren_name << ")";
+          out << ":\n";
+
+          inc_indent();
+          print_indent();
+
+          if (has_constructor) {
+               out << "def __init__(self";
+
+               if (!ctor_params.empty()) 
+                    out << ", " << ctor_params;
+               out << "):\n";
+          } else {
                out << "def __init__(self):\n";
+          }
+
+          inc_indent();
+
+          for (auto &v : mem_vars) {
+               print_indent();
+               out << "self." << v << " = None\n";
+          }
+
+          dec_indent();
+
+          for (auto &m : methods) {
+               print_indent();
+               out << "def " << m.name << "(self";
+
+               if (!m.params.empty())
+                    out << ", " << m.params;
+               out << "):\n";
 
                inc_indent();
-
-               for (auto &v : mem_vars) {
-                    print_indent(); 
-                    out << "self." << v << " = None\n";
-               }
-
-               dec_indent();
+               print_indent();
+               
+               out << "pass\n";
+               
                dec_indent();
           }
-          
-          has_constructor = false;
+
+          dec_indent();
+
           mem_vars.clear();
+          methods.clear();
+          has_constructor = false;
      }
      ;
+
+IHRT : e        { paren_name.clear(); }
+     | ACC NAME { paren_name = $2; }
 
 BOD  : e
      | ACC ':' BOD
@@ -101,36 +145,8 @@ VAR  : DEC                    { $$ = $1; }
         mem_vars.push_back($2);
       }
     ;*/
-FUNC : DEC '(' ')' SCP
-     {
-          inc_indent();
-          print_indent(); 
-
-          out << "def " << $1 << "(self):\n"; newline();
-
-          inc_indent();
-          print_indent(); 
-
-          out << "pass\n";
-
-          dec_indent();
-          dec_indent();
-     }
-     | DEC '(' VARL ')' SCP
-     {
-          inc_indent();
-          print_indent();
-
-          out<< "def " << $1 << "(self, " << $3 << "):\n";
-
-          inc_indent();
-          print_indent(); 
-
-          out << "pass\n";
-
-          dec_indent();
-          dec_indent();
-     }
+FUNC : DEC '(' ')' SCP      { methods.push_back({ string($1), "" }); }
+     | DEC '(' VARL ')' SCP { methods.push_back({ string($1), string($3) }); }
      ;
 
 CALL : NAME '(' ')' SC
@@ -164,6 +180,20 @@ NAMEL: NAME              { $$ = $1; }
 
 CTOR : NAME '(' ')' SCP
      {
+          if ($1 == class_name && !has_constructor) {
+               has_constructor = true;
+               ctor_params.clear();
+          }
+     }
+     | NAME '(' VARL ')' SCP
+     {
+          if ($1 == class_name && !has_constructor) {
+               has_constructor = true;
+               ctor_params = $3;
+          }
+     }
+     ;
+     /*
           if ($1 != class_name) {
                cerr << "Warning: constructor name " << $1 << " != class " << class_name << endl;
           } else if (has_constructor) {
@@ -211,6 +241,7 @@ CTOR : NAME '(' ')' SCP
           }
      }
      ;
+     */
 
 e : ;
 %%
