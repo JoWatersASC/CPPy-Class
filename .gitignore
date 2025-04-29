@@ -1,0 +1,8 @@
+# Ignore output directory containing generated parser & lexer files
+output/
+
+# Generated files from bison & flex
+*.tab*
+*.yy*
+
+!.gitignore
