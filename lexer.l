@@ -4,9 +4,12 @@
 #include <cstring>
 
 extern int lineNum;
+extern std::string class_name;
 %}
 
 %option noyywrap
+
+%s LOCAL
 
 %%
 
@@ -19,6 +22,20 @@ extern int lineNum;
                                         return CLASS;
                                     }
 ("public"|"private"|"protected")    { return ACC; }
+
+
+("public"|"private"|"protected")    { return ACC; }
+
+<LOCAL>("int"|"char"|"float"|"double"|"void"|"bool") {
+    yylval.s = strdup(yytext);
+    return LTYPE;
+}
+
+("int"|"char"|"float"|"double"|"void"|"bool") {
+    yylval.s = strdup(yytext);
+    return TYPE;
+}
+
 ";"+                                { return SC; }
 "{"                                 { return '{'; }
 "}"                                 { return '}'; }
@@ -29,38 +46,11 @@ extern int lineNum;
 
 [A-Za-z_][A-Za-z0-9_]*              {
                                         yylval.s = strdup(yytext);
+                                        if(class_name == yytext)
+                                            return CNAME;
                                         return NAME;
                                     }
 
 .                                   ;
 
 %%
-
-/*
-
-%%
-
-[ \t]	;
-\n	{ return 0; }
-
-"min" { return MIN; }
-"max" { return MAX; }
-"pow" { return POW; }
-
-[0-9]+	{ yylval.d = atoi(yytext); return NUMBER; }
-
-[A-Za-z_][A-Za-z0-9_]* { yylval.s = strdup(yytext); return IDENTIFIER; }
-
-"="	{ return '='; }
-
-"+"	{ return '+'; }
-"*"	{ return '*'; }
-"-" { return '-'; }
-"/" { return '/'; }
-"("	{ return '('; }
-")"	{ return ')'; }
-"," { return ','; }
-.	{std::cout << "Invalid character: " << yytext << std::endl; }
-
-%%
-*/
