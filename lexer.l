@@ -27,12 +27,12 @@ void yy_end_loc();
 ("public"|"private"|"protected")    { return ACC; }
 
 
-<LOCAL>("int"|"char"|"float"|"double"|"void"|"bool") {
+<LOCAL>("int"|"char"|"float"|"double"|"void"|"bool"|"string") {
     yylval.s = strdup(yytext);
     return LTYPE;
 }
 
-("int"|"char"|"float"|"double"|"void"|"bool") {
+("int"|"char"|"float"|"double"|"void"|"bool"|"string") {
     yylval.s = strdup(yytext);
     return TYPE;
 }
