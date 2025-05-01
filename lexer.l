@@ -5,6 +5,9 @@
 
 extern int lineNum;
 extern std::string class_name;
+
+void yy_beg_loc();
+void yy_end_loc();
 %}
 
 %option noyywrap
@@ -41,6 +44,9 @@ extern std::string class_name;
 ")"                                 { return ')'; }
 ","                                 { return ','; }
 ":"									{ return ':'; }
+"="									{ return '='; }
+
+[0-9]+								{ return NUM; }
 
 [A-Za-z_][A-Za-z0-9_]*              {
                                         yylval.s = strdup(yytext);
@@ -52,3 +58,6 @@ extern std::string class_name;
 .                                   ;
 
 %%
+
+void yy_beg_loc() { BEGIN(LOCAL); }
+void yy_end_loc() { BEGIN(INITIAL); }

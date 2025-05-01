@@ -3,6 +3,8 @@
 #include <fstream>
 #include <cctype>
 #include <cmath>
+#include <sstream>
+#include <cstring>
 
 #include <vector>
 #include <unordered_set>
@@ -17,9 +19,12 @@ string class_name;
 string paren_name = ""; // optional parent class name
 string ctor_params = "";
 
+std::ostringstream builder;
+
 struct method {
      string name;
      string params;
+	 string body;
 
      bool operator==(const method& o) const { return name == o.name; }
 };
@@ -55,8 +60,8 @@ extern int yylex(void);
 #define YYDEBUG 1
 extern int yydebug;
 
-extern void yy_switch_to_LOCAL();
-extern void yy_switch_to_INITIAL();
+extern void yy_beg_loc();
+extern void yy_end_loc();
 
 %}
 
@@ -66,8 +71,9 @@ extern void yy_switch_to_INITIAL();
 	char *s;
 }
 
+%token <d> NUM
 %token <s> ACC NAME SC CLASS CNAME TYPE LTYPE
-%type <s> CLS CTOR MDEC LDEC VAR VARL NAMEL IHRT
+%type <s> CLS CTOR MDEC LDEC VAR VARL NAMEL IHRT CALL
 
 %start S
 
@@ -140,33 +146,50 @@ BOD  : e
      | CTOR BOD
      ;
 
-SCP  : e                      {} // store SCP output in a string and appnend to the function
-     | ';'
-     | VAR SC SCP             { members.erase($1); }
-     | CALL SC SCP            {}
-     | '{' VAR SC SCP '}'     { indent++; members.erase($2); }
-     | '{' CALL SC SCP '}'    { indent++; }
-     ;
-
-MVAR : MDEC                    { mem_vars.push_back($1); members.insert($1); }
-     | MDEC '='                { mem_vars.push_back($1); members.insert($1); } // skip init
+MVAR : MDEC                    { mem_vars.push_back($1); members.insert($1); yy_end_loc(); }
+     | MDEC '=' NAME      	   { mem_vars.push_back($1); members.insert($1); yy_end_loc(); } // skip init
+	 | MDEC '=' NUM      	   { mem_vars.push_back($1); members.insert($1); yy_end_loc(); }
      ;
 VAR  : LDEC                    { $$ = $1; members.insert($1); }
-     | LDEC '='                { $$ = $1 + '='; members.insert($1); }// skip init
+     | LDEC '=' NAME           { 
+									builder << $1 << '=' << $3;
+									$$ = strdup(const_cast<char *>(builder.str().c_str())); 
+									builder.str("");
+									members.insert($1); 
+								}// skip init
+	 | LDEC '=' NUM            { 
+									builder << $1 << '=' << $3;
+									$$ = strdup(const_cast<char *>(builder.str().c_str())); 
+									builder.str("");
+									members.insert($1); 
+							   }
      ;
-     /* : TYPE NAME SC
-      {
-        mem_vars.push_back($2);
-      }
-    ;*/
-FUNC : MDEC '(' ')''{' SCP '}'      { methods.push_back({ string($1), "" }); } // maybe store the SCP result in a map of sorts for each func, 
-     | MDEC '(' VARL ')''{' SCP '}' { methods.push_back({ string($1), string($3) }); cout << $3 << endl; } //or keep another field 'string body' in 'method' struct
-     | MDEC '(' ')' SC              { methods.push_back({ string($1), "" }); } // Declarations w/ no body
-     | MDEC '(' VARL ')' SC         { methods.push_back({ string($1), string($3) }); }
+	 
+SCP  : e                      {} // store SCP output in a string and appnend to the function
+     | ';'
+     | VAR SC      { builder << $1 << '\n'; } SCP        { members.erase($1); }
+     | CALL SC     { builder << $1 << '\n'; } SCP        {}
+     | '{' VAR SC  { builder << $2 << '\n'; } SCP '}'    { indent++; members.erase($2); }
+     | '{' CALL SC { builder << $2 << '\n'; } SCP '}'    { indent++; }
+     ;
+	 
+FUNC : MDEC '(' ')''{' { yy_beg_loc(); } SCP '}' 
+	{
+		methods.push_back({ string($1), "", builder.str() }); 
+		builder.str("");
+		yy_end_loc();
+	} // maybe store the SCP result in a map of sorts for each func, 
+    | MDEC '(' VARL ')''{' SCP '}' 
+	{ 
+		methods.push_back({ string($1), string($3) }); cout << $3 << endl; 
+		yy_end_loc();
+	} //or keep another field 'string body' in 'method' struct
+     | MDEC '(' ')' SC              { methods.push_back({ string($1), "" }); yy_end_loc(); } // Declarations w/ no body
+     | MDEC '(' VARL ')' SC         { methods.push_back({ string($1), string($3) }); yy_end_loc(); }
      ;
 
-CALL : NAME '(' ')' SC
-     | NAME '(' NAMEL ')' SC {}
+CALL : NAME '(' ')'       { builder << $1 << "()"; $$ = (char *)builder.str().c_str(); builder.str(""); }
+     | NAME '(' NAMEL ')' { builder << $1 << '(' << $3 << ')'; $$ = (char *)builder.str().c_str(); builder.str(""); }
      ;
 
 MDEC  : TYPE NAME
@@ -180,10 +203,12 @@ MDEC  : TYPE NAME
                cerr << "[ERROR] CANNOT HAVE DUPLICATE IDENTIFIER: " << var << '\n';
                $$ = 0;
           }
+		  
+		  yy_beg_loc();
      }
      ;
 
-LDEC : TYPE NAME
+LDEC : LTYPE NAME
      {
           string var = $2;
           
@@ -198,16 +223,22 @@ LDEC : TYPE NAME
      ;
 
 VARL : VAR               { $$ = $1; }
-     | VARL ',' VAR      { $$ = const_cast<char *>(
+     | VARL ',' VAR      { $$ = strdup(const_cast<char *>(
                               (string($1) + ", " + string($3)).c_str()
-                         ); /*cout << "VARL: " << $$ << endl; */
+                         )); /*cout << "VARL: " << $$ << endl; */
                          }
      ;
 
-NAMEL: NAME              { $$ = $1; }
-     | NAMEL ',' NAME    { $$ = const_cast<char *>(
+NAMEL: NUM				 { $$ = strdup(const_cast<char *>(std::to_string($1).c_str())); }
+	 | NAME              { $$ = $1; }
+     | NAMEL ',' NUM    { 
+							builder << $1 << ", " << $3;
+							$$ = strdup(const_cast<char *>(builder.str().c_str()));
+							builder.str("");
+						}
+	 | NAMEL ',' NAME    { $$ = strdup(const_cast<char *>(
                               (string($1) + ", " + string($3)).c_str()
-                         );}
+                         ));}
      ;
 
 CTOR : CNAME '(' ')' SCP
