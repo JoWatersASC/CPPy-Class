@@ -21,6 +21,10 @@ string ctor_params = "";
 
 std::ostringstream builder;
 
+struct mem_var {
+	string name;
+	string val;
+};
 struct method {
      string name;
      string params;
@@ -30,7 +34,7 @@ struct method {
 };
 
 std::vector<method> methods;
-std::vector<std::string> mem_vars;
+std::vector<mem_var> mem_vars;
 std::unordered_set<std::string> members;
 std::unordered_set<std::string> locals;
 
@@ -107,7 +111,7 @@ CLS  : NAME IHRT '{' BOD '}' SC
 
           for (auto &v : mem_vars) {
                print_indent();
-               out << "self." << v << " = None\n";
+               out << "self." << v.name << " = " << (v.val.empty() ? "None" : v.val) << endl;
           }
 
           dec_indent();
@@ -149,9 +153,9 @@ BOD  : e
      | CTOR BOD
      ;
 
-MVAR : MDEC                    { mem_vars.push_back($1); members.insert($1); yy_end_loc(); }
-     | MDEC '=' NAME      	   { mem_vars.push_back($1); members.insert($1); yy_end_loc(); } // skip init
-	 | MDEC '=' NUM      	   { mem_vars.push_back($1); members.insert($1); yy_end_loc(); }
+MVAR : MDEC                    { mem_vars.push_back({ $1, "" }); members.insert($1); yy_end_loc(); }
+     | MDEC '=' NAME      	   { mem_vars.push_back({ $1, $3 }); members.insert($1); yy_end_loc(); } // skip init
+	 | MDEC '=' NUM      	   { mem_vars.push_back({ $1, std::to_string($3) }); members.insert($1); yy_end_loc(); }
      ;
 VAR  : LDEC                    { $$ = $1; members.insert($1); }
      | LDEC '=' NAME           { 
@@ -261,57 +265,6 @@ CTOR : CNAME '(' ')' SCP
      }
      ;
 	 
-	 
-     /*
-          if ($1 != class_name) {
-               cerr << "Warning: constructor name " << $1 << " != class " << class_name << endl;
-          } else if (has_constructor) {
-               cerr << "Error: only one constructor allowed\n";
-          } else {
-               has_constructor = true;
-               inc_indent();
-               print_indent();
-               
-               out << "def __init__(self):\n";
-               
-               inc_indent();
-
-               for (auto &v : mem_vars) {
-                    print_indent();
-                    out << "self." << v << " = None\n";
-               }
-               
-               dec_indent();
-               dec_indent();
-          }
-     }
-     | NAME '(' VARL ')' SCP
-     {
-          if ($1 != class_name) {
-               cerr << "Warning: constructor name " << $1 << " != class " << class_name << endl;
-          } else if (has_constructor) {
-               cerr << "Error: only one constructor allowed\n";
-          } else {
-               has_constructor = true;
-               inc_indent();
-               print_indent(); 
-               
-               out << "def __init__(self, " << $3 << "):\n";
-               
-               inc_indent();
-
-               for (auto &v : mem_vars) {
-                    print_indent(); 
-                    out << "self." << v << " = None\n";
-               }
-
-               dec_indent();
-               dec_indent();
-          }
-     }
-     ;
-     */
-
 e : ;
 %%
 
