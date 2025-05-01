@@ -181,17 +181,15 @@ FUNC : MDEC '(' ')''{' { yy_beg_loc(); } SCP '}'
 		methods.push_back({ string($1), "", std::move(builder.str()) }); 
 		builder.str("");
 		yy_end_loc();
-	} // maybe store the SCP result in a map of sorts for each func, 
+	}
     | MDEC '(' VARL ')''{' SCP '}' 
 	{ 
-		cout << builder.str() << endl;
 		methods.push_back({ string($1), string($3), std::move(builder.str()) }); 
 		builder.str("");
-		// cout << methods[methods.size() - 1].body << endl;
 		yy_end_loc();
-	} //or keep another field 'string body' in 'method' struct
-     | MDEC '(' ')' SC              { methods.push_back({ string($1), "" }); yy_end_loc(); } // Declarations w/ no body
-     | MDEC '(' VARL ')' SC         { methods.push_back({ string($1), string($3) }); yy_end_loc(); }
+	}
+     | MDEC '(' ')' SC              { methods.push_back({ string($1), "", "" }); yy_end_loc(); } // Declarations w/ no body
+     | MDEC '(' VARL ')' SC         { methods.push_back({ string($1), string($3), "" }); yy_end_loc(); }
      ;
 
 CALL : NAME '(' ')'       { builder << $1 << "()"; $$ = strdup((char *)builder.str().c_str()); builder.str(""); }
