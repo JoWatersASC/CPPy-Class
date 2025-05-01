@@ -123,7 +123,10 @@ CLS  : NAME IHRT '{' BOD '}' SC
                inc_indent();
                print_indent();
                
-               out << "pass\n";
+			   if(m.body.empty())
+			       out << "pass\n";
+			   else
+				   out << m.body << endl;
                
                dec_indent();
           }
@@ -158,7 +161,7 @@ VAR  : LDEC                    { $$ = $1; members.insert($1); }
 									members.insert($1); 
 								}// skip init
 	 | LDEC '=' NUM            { 
-									builder << $1 << '=' << $3;
+									builder << $1 << '=' << std::to_string($3);
 									$$ = strdup(const_cast<char *>(builder.str().c_str())); 
 									builder.str("");
 									members.insert($1); 
@@ -168,28 +171,31 @@ VAR  : LDEC                    { $$ = $1; members.insert($1); }
 SCP  : e                      {} // store SCP output in a string and appnend to the function
      | ';'
      | VAR SC      { builder << $1 << '\n'; } SCP        { members.erase($1); }
-     | CALL SC     { builder << $1 << '\n'; } SCP        {}
+     | CALL SC     { builder << $1 << '\n'; } SCP        {  }
      | '{' VAR SC  { builder << $2 << '\n'; } SCP '}'    { indent++; members.erase($2); }
-     | '{' CALL SC { builder << $2 << '\n'; } SCP '}'    { indent++; }
+     | '{' CALL SC { builder << $2 << '\n'; } SCP '}'    { indent++;  }
      ;
 	 
 FUNC : MDEC '(' ')''{' { yy_beg_loc(); } SCP '}' 
 	{
-		methods.push_back({ string($1), "", builder.str() }); 
+		methods.push_back({ string($1), "", std::move(builder.str()) }); 
 		builder.str("");
 		yy_end_loc();
 	} // maybe store the SCP result in a map of sorts for each func, 
     | MDEC '(' VARL ')''{' SCP '}' 
 	{ 
-		methods.push_back({ string($1), string($3) }); cout << $3 << endl; 
+		cout << builder.str() << endl;
+		methods.push_back({ string($1), string($3), std::move(builder.str()) }); 
+		builder.str("");
+		// cout << methods[methods.size() - 1].body << endl;
 		yy_end_loc();
 	} //or keep another field 'string body' in 'method' struct
      | MDEC '(' ')' SC              { methods.push_back({ string($1), "" }); yy_end_loc(); } // Declarations w/ no body
      | MDEC '(' VARL ')' SC         { methods.push_back({ string($1), string($3) }); yy_end_loc(); }
      ;
 
-CALL : NAME '(' ')'       { builder << $1 << "()"; $$ = (char *)builder.str().c_str(); builder.str(""); }
-     | NAME '(' NAMEL ')' { builder << $1 << '(' << $3 << ')'; $$ = (char *)builder.str().c_str(); builder.str(""); }
+CALL : NAME '(' ')'       { builder << $1 << "()"; $$ = strdup((char *)builder.str().c_str()); builder.str(""); }
+     | NAME '(' NAMEL ')' { builder << $1 << '(' << $3 << ')'; $$ = strdup((char *)builder.str().c_str()); builder.str(""); }
      ;
 
 MDEC  : TYPE NAME
@@ -225,7 +231,7 @@ LDEC : LTYPE NAME
 VARL : VAR               { $$ = $1; }
      | VARL ',' VAR      { $$ = strdup(const_cast<char *>(
                               (string($1) + ", " + string($3)).c_str()
-                         )); /*cout << "VARL: " << $$ << endl; */
+                         ));
                          }
      ;
 
