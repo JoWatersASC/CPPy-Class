@@ -24,8 +24,6 @@ extern std::string class_name;
 ("public"|"private"|"protected")    { return ACC; }
 
 
-("public"|"private"|"protected")    { return ACC; }
-
 <LOCAL>("int"|"char"|"float"|"double"|"void"|"bool") {
     yylval.s = strdup(yytext);
     return LTYPE;
