@@ -1,10 +1,6 @@
 # CPPy-Class
 
-### Turn C++ class declarations into python class declarations
-
-
-## Build
-run 'build.sh' script
+> A command-line tool that parses C++ header files and generates equivalent Python class definitions using Flex and Bison.
 
 #### Output
 ![Output-Pic](assets/cppy-class.png)
@@ -12,7 +8,69 @@ run 'build.sh' script
 #### Tree
 ![Output-Tree](assets/tree.png)
 
-### **1\. Grammar Definition \[25 pts\]**
+## About the Project
+This project was developed for a compilers course to gain a practical understanding of lexical analysis and parsing. The primary objective was to build a compiler front-end that can process a subset of the C++ language. It uses Flex to tokenize C++ class syntax and Bison to parse these tokens into an Abstract Syntax Tree (AST), which is then traversed to generate semantically equivalent Python code.
+
+This tool demonstrates a foundational knowledge of compiler design, context-free grammars, and the complexities of translating between statically-typed and dynamically-typed object-oriented languages.
+
+## Tech Stack 🛠️
+C++: For the core logic and AST manipulation.
+
+Flex: For lexical analysis (tokenizing the C++ source code).
+
+Bison: For parsing the token stream and building the AST.
+
+Make: For automating the build process.
+
+## Key Features
+Parses C++ class declarations from .h header files.
+
+Recognizes member variables with basic types (int, double, std::string, etc.) and maps them to Python equivalents.
+
+Handles simple inheritance structures (class Derived : public Base).
+
+Generates clean, corresponding .py files with Python class structures, including an \_\_init__ method and pass for member functions.
+
+## Getting Started
+Install Dependencies
+- On Debian/Ubuntu:
+  ```bash
+  sudo apt-get install flex bison g++ make
+  ```
+- On Fedora/CentOS/RHEL(dnf/yum):
+  ```bash
+  sudo dnf install flex bison g++ make
+  ```
+Clone the repository
+  ```bash
+  git clone https://github.com/JoWatersASC/CPPy-Class
+  cd CPPy-Class
+  ```
+
+## Build
+  ```bash
+  bash build.sh
+  ```
+  or on Linux
+  ```bash
+  chmod +x build.sh
+  ./build.sh
+  ```
+## Run
+  ```bash
+  cd output
+  cppygen <cpp_input_file> [<python_output_file>]
+  ```
+  and <python_output_file> should contain your new class! 
+  ***(If no <python_output_file> specifed, default name is CPPy-Class.py)***
+  
+  *If you want to not have the parser output, do*
+  ```bash
+  cd output
+  cppygen <cpp_input_file> [<python_output_file>] 2> <temp_file>
+  ```
+  and all the parser output will be placed into <temp_file>
+ 
 
 #### **BNF Format:**
 
@@ -35,8 +93,6 @@ This grammar captures the basic structure of a C++-like class system including:
 This simple structure supports hierarchical parsing of class definitions.
 
 ---
-
-### **2\. Parser Implementation \[30 pts\]**
 
 #### **Parsing Strategy:**
 
@@ -89,8 +145,6 @@ class Shape {
 
 ---
 
-### **4\. Assumptions & Language Design \[15 pts\]**
-
 #### **Assumptions:**
 
 * All class declarations are syntactically valid.
@@ -106,31 +160,3 @@ class Shape {
 * Provide a stepping stone for more complex C++-like features
 
 * Enable structured output (e.g., for transpilation or analysis)
-
----
-
-### **5\. Demo Output \+ Parse Tree \[10 pts\]**
-
-#### **Example Input:**
-
-class Car {  
-  public speed;  
-  private model;  
-};
-
-#### **Parse Tree (Textual Representation):**
-
-program  
-└── class\_decl ("Car")  
-    ├── member (public, speed)  
-    └── member (private, model)
-
-#### **Generated Output:**
-
-{  
-  "class": "Car",  
-  "members": \[  
-    {"access": "public", "name": "speed"},  
-    {"access": "private", "name": "model"}  
-  \]  
-}
