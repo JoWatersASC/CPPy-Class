@@ -18,9 +18,14 @@ using std::endl;
 string class_name;
 string paren_name = ""; // optional parent class name
 string ctor_params = "";
+string ctor_body = "";
 
 std::ostringstream builder;
 
+struct mem_var {
+	string name;
+	string val;
+};
 struct method {
      string name;
      string params;
@@ -30,7 +35,7 @@ struct method {
 };
 
 std::vector<method> methods;
-std::vector<std::string> mem_vars;
+std::vector<mem_var> mem_vars;
 std::unordered_set<std::string> members;
 std::unordered_set<std::string> locals;
 
@@ -50,8 +55,10 @@ bool has_constructor = false;
 
 int lineNum = 1;
 
-using std::cout;
-using std::endl;
+void dup_err(const string& var) {
+	cout << "[ERROR] CANNOT HAVE DUPLICATE IDENTIFIER: " << var << '\n';
+	cerr << "[ERROR] CANNOT HAVE DUPLICATE IDENTIFIER: " << var << '\n';
+}
 
 void yyerror(const char *s) {
 	cerr << lineNum << ": " << s << endl;
@@ -67,11 +74,12 @@ extern void yy_end_loc();
 
 %union {
 	int d;
+	float f;
 	
 	char *s;
 }
 
-%token <d> NUM
+%token <f> NUM
 %token <s> ACC NAME SC CLASS CNAME TYPE LTYPE
 %type <s> CLS CTOR MDEC LDEC VAR VARL NAMEL IHRT CALL
 
@@ -81,7 +89,7 @@ extern void yy_end_loc();
 S    : CLASS CLS
      ;
 
-CLS  : NAME IHRT '{' BOD '}' SC
+CLS  : NAME {class_name = $1; }IHRT '{' BOD '}' SC
      {
           print_indent();
 
@@ -96,7 +104,7 @@ CLS  : NAME IHRT '{' BOD '}' SC
           if (has_constructor) {
                out << "def __init__(self";
 
-               if (!ctor_params.empty()) 
+               if (!ctor_params.empty())
                     out << ", " << ctor_params;
                out << "):\n";
           } else {
@@ -107,8 +115,16 @@ CLS  : NAME IHRT '{' BOD '}' SC
 
           for (auto &v : mem_vars) {
                print_indent();
-               out << "self." << v << " = None\n";
+               out << "self." << v.name << " = " << (v.val.empty() ? "None" : v.val) << endl;
           }
+		  
+		  std::istringstream ctbstr(ctor_body);
+		  string line;
+		  while(getline(ctbstr, line)) {
+			  print_indent();
+			  out << line << endl;
+		  }
+		  out << endl;
 
           dec_indent();
 
@@ -149,26 +165,32 @@ BOD  : e
      | CTOR BOD
      ;
 
-MVAR : MDEC                    { mem_vars.push_back($1); members.insert($1); yy_end_loc(); }
-     | MDEC '=' NAME      	   { mem_vars.push_back($1); members.insert($1); yy_end_loc(); } // skip init
-	 | MDEC '=' NUM      	   { mem_vars.push_back($1); members.insert($1); yy_end_loc(); }
+MVAR : MDEC                    { mem_vars.push_back({ $1, "" }); members.insert($1); yy_end_loc(); }
+     | MDEC '=' NAME      	   { mem_vars.push_back({ $1, $3 }); members.insert($1); yy_end_loc(); } // skip init
+	 | MDEC '=' NUM      	   { mem_vars.push_back({ $1, std::to_string($3) }); members.insert($1); yy_end_loc(); }
      ;
-VAR  : LDEC                    { $$ = $1; members.insert($1); }
-     | LDEC '=' NAME           { 
+VAR  : LDEC                    	{ $$ = $1; members.insert($1); }
+     | LDEC '=' NAME           	{ 
 									builder << $1 << '=' << $3;
 									$$ = strdup(const_cast<char *>(builder.str().c_str())); 
 									builder.str("");
 									members.insert($1); 
 								}// skip init
-	 | LDEC '=' NUM            { 
+	 | LDEC '=' NUM            	{ 
 									builder << $1 << '=' << std::to_string($3);
 									$$ = strdup(const_cast<char *>(builder.str().c_str())); 
 									builder.str("");
 									members.insert($1); 
-							   }
+								}
+	 // | LDEC '=' CALL            { 
+									// builder << $1 << '=' << std::to_string($3);
+									// $$ = strdup(const_cast<char *>(builder.str().c_str())); 
+									// builder.str("");
+									// members.insert($1); 
+								// }
      ;
 	 
-SCP  : e                      {} // store SCP output in a string and appnend to the function
+SCP  : e                      {}
      | ';'
      | VAR SC      { builder << $1 << '\n'; } SCP        { members.erase($1); }
      | CALL SC     { builder << $1 << '\n'; } SCP        {  }
@@ -176,7 +198,7 @@ SCP  : e                      {} // store SCP output in a string and appnend to 
      | '{' CALL SC { builder << $2 << '\n'; } SCP '}'    { indent++;  }
      ;
 	 
-FUNC : MDEC '(' ')''{' { yy_beg_loc(); } SCP '}' 
+FUNC : MDEC '(' ')''{' SCP '}' 
 	{
 		methods.push_back({ string($1), "", std::move(builder.str()) }); 
 		builder.str("");
@@ -219,8 +241,7 @@ LDEC : LTYPE NAME
           if (!members.count(var)) { // insert returns boolean: true if successful/didn't exist already
                $$ = $2;
           } else {
-               cout << "[ERROR] CANNOT HAVE DUPLICATE IDENTIFIER: " << var << '\n';
-               cerr << "[ERROR] CANNOT HAVE DUPLICATE IDENTIFIER: " << var << '\n';
+               dup_err(var);
                $$ = 0;
           }
      }
@@ -250,68 +271,55 @@ CTOR : CNAME '(' ')' SCP
           if ($1 == class_name && !has_constructor) {
                has_constructor = true;
                ctor_params.clear();
-          }
+			   ctor_body = std::move(builder.str());
+			   builder.str("");
+          } else if($1 == class_name) {
+			  dup_err(class_name);
+			  exit(0);
+		  }
+		  
+		   yy_end_loc();
      }
      | CNAME '(' VARL ')' SCP
      {
           if ($1 == class_name && !has_constructor) {
                has_constructor = true;
                ctor_params = $3;
-          }
+			   ctor_body = std::move(builder.str());
+			   builder.str("");
+          } else if($1 == class_name) {
+			  dup_err(class_name);
+			  exit(0);
+		  }
+		  
+		  yy_end_loc();
      }
-     ;
-	 
-	 
-     /*
-          if ($1 != class_name) {
-               cerr << "Warning: constructor name " << $1 << " != class " << class_name << endl;
-          } else if (has_constructor) {
-               cerr << "Error: only one constructor allowed\n";
-          } else {
-               has_constructor = true;
-               inc_indent();
-               print_indent();
-               
-               out << "def __init__(self):\n";
-               
-               inc_indent();
-
-               for (auto &v : mem_vars) {
-                    print_indent();
-                    out << "self." << v << " = None\n";
-               }
-               
-               dec_indent();
-               dec_indent();
-          }
-     }
-     | NAME '(' VARL ')' SCP
+	 | CNAME '(' ')' SC
      {
-          if ($1 != class_name) {
-               cerr << "Warning: constructor name " << $1 << " != class " << class_name << endl;
-          } else if (has_constructor) {
-               cerr << "Error: only one constructor allowed\n";
-          } else {
+          if ($1 == class_name && !has_constructor) {
                has_constructor = true;
-               inc_indent();
-               print_indent(); 
-               
-               out << "def __init__(self, " << $3 << "):\n";
-               
-               inc_indent();
-
-               for (auto &v : mem_vars) {
-                    print_indent(); 
-                    out << "self." << v << " = None\n";
-               }
-
-               dec_indent();
-               dec_indent();
-          }
+               ctor_params.clear();
+          } else if($1 == class_name) {
+			  dup_err(class_name);
+			  exit(0);
+		  }
+		  
+		  yy_end_loc();
+     }
+     | CNAME '(' VARL ')' SC
+     {
+          if ($1 == class_name && !has_constructor) {
+               has_constructor = true;
+               ctor_params = $3;
+          } else if($1 == class_name) {
+			  dup_err(class_name);
+			  exit(0);
+		  }
+		  
+		  yy_end_loc();
      }
      ;
-     */
-
+	 
 e : ;
 %%
 
