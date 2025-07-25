@@ -46,12 +46,14 @@ void yy_end_loc();
 ":"									{ return ':'; }
 "="									{ return '='; }
 
-[0-9]+								{  yylval.d = atoi(yytext); return NUM; }
+[0-9]+(.[0-9]+)?					{  yylval.f = atof(yytext); return NUM; }
 
 [A-Za-z_][A-Za-z0-9_]*              {
                                         yylval.s = strdup(yytext);
-                                        if(class_name == yytext)
+                                        if(class_name == yytext) {
+											BEGIN(LOCAL);
                                             return CNAME;
+										}
                                         return NAME;
                                     }
 
